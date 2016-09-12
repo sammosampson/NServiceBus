@@ -73,6 +73,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Messaging" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Security" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="System.ServiceProcess" />
@@ -113,6 +114,9 @@
     <Compile Include="Notifications\IEventAggregator.cs" />
     <Compile Include="Notifications\NotificationSubscriptions.cs" />
     <Compile Include="Notifications\EventAggregatorExtensions.cs" />
+    <Compile Include="Persistence\Development\DevelopmentPersistence.cs" />
+    <Compile Include="Persistence\Development\DevelopmentSagaPersistence.cs" />
+    <Compile Include="Persistence\Development\DevelopmentSagaPersister.cs" />
     <Compile Include="Pipeline\ForkConnector.cs" />
     <Compile Include="Pipeline\IPipelineCache.cs" />
     <Compile Include="Pipeline\IPipelineExecutor.cs" />

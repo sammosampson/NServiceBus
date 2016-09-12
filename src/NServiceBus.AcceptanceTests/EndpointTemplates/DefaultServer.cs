@@ -9,6 +9,7 @@
     using Features;
     using NServiceBus.Config.ConfigurationSource;
     using NServiceBus.Serialization;
+    using Persistence;
 
     public class DefaultServer : IEndpointSetupTemplate
     {
@@ -54,6 +55,7 @@
             }
             await configuration.DefinePersistence(settings, endpointConfiguration.EndpointName).ConfigureAwait(false);
 
+            configuration.UsePersistence<DevelopmentPersistence, StorageType.Sagas>();
             configuration.GetSettings().SetDefault("ScaleOut.UseSingleBrokerQueue", true);
             configurationBuilderCustomization(configuration);
 
