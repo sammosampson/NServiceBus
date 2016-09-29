@@ -1,12 +1,11 @@
-﻿namespace ServiceBus.AcceptanceTests.Routing
+﻿namespace NServiceBus.AcceptanceTests.Routing
 {
     using System.Threading.Tasks;
+    using AcceptanceTesting;
+    using EndpointTemplates;
     using NServiceBus;
-    using NServiceBus.AcceptanceTesting;
-    using NServiceBus.AcceptanceTests;
-    using NServiceBus.AcceptanceTests.EndpointTemplates;
     using NUnit.Framework;
-    using Conventions = NServiceBus.AcceptanceTesting.Customization.Conventions;
+    using Conventions = AcceptanceTesting.Customization.Conventions;
 
     public class When_overriding_local_address : NServiceBusAcceptanceTest
     {
