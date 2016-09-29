@@ -1,24 +1,47 @@
 ﻿namespace NServiceBus.AcceptanceTests.Routing
 {
     using System;
+    using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using AcceptanceTesting;
     using NServiceBus.Pipeline;
-    using ObjectBuilder;
     using Transport;
+    using CriticalError = NServiceBus.CriticalError;
 
-    class SubscriptionBehavior<TContext> : IBehavior<IIncomingPhysicalMessageContext, IIncomingPhysicalMessageContext> where TContext : ScenarioContext
+    class SubscriptionBehavior<TContext> : Behavior<IIncomingPhysicalMessageContext> where TContext : ScenarioContext
     {
-        public SubscriptionBehavior(Action<SubscriptionEventArgs, TContext> action, TContext scenarioContext, MessageIntentEnum intentToHandle)
+        public SubscriptionBehavior(Action<SubscriptionEventArgs, TContext> action, TContext scenarioContext, CriticalError criticalError)
         {
             this.action = action;
             this.scenarioContext = scenarioContext;
-            this.intentToHandle = intentToHandle;
+            this.criticalError = criticalError;
         }
 
-        public async Task Invoke(IIncomingPhysicalMessageContext context, Func<IIncomingPhysicalMessageContext, Task> next)
+        public override async Task Invoke(IIncomingPhysicalMessageContext context, Func<Task> next)
         {
-            await next(context).ConfigureAwait(false);
+            const int maxRetries = 10;
+            var retries = 0;
+            var succeeded = false;
+            Exception lastError = null;
+            while (retries < maxRetries && !succeeded)
+            {
+                try
+                {
+                    await next().ConfigureAwait(false);
+                    succeeded = true;
+                }
+                catch (Exception ex)
+                {
+                    retries++;
+                    lastError = ex;
+                    Thread.Sleep(100);
+                }
+            }
+            if (!succeeded)
+            {
+                criticalError.Raise("Error updating subscription store", lastError);
+            }
             var subscriptionMessageType = GetSubscriptionMessageTypeFrom(context.Message);
             if (subscriptionMessageType != null)
             {
@@ -27,13 +50,6 @@
                 {
                     context.Message.Headers.TryGetValue(Headers.ReplyToAddress, out returnAddress);
                 }
-
-                var intent = (MessageIntentEnum)Enum.Parse(typeof(MessageIntentEnum), context.Message.Headers[Headers.MessageIntent], true);
-                if (intent != intentToHandle)
-                {
-                    return;
-                }
-
                 action(new SubscriptionEventArgs
                 {
                     MessageType = subscriptionMessageType,
@@ -44,18 +60,17 @@
 
         static string GetSubscriptionMessageTypeFrom(IncomingMessage msg)
         {
-            string headerValue;
-            return msg.Headers.TryGetValue(Headers.SubscriptionMessageType, out headerValue) ? headerValue : null;
+            return (from header in msg.Headers where header.Key == Headers.SubscriptionMessageType select header.Value).FirstOrDefault();
         }
 
         Action<SubscriptionEventArgs, TContext> action;
         TContext scenarioContext;
-        MessageIntentEnum intentToHandle;
+        CriticalError criticalError;
 
         internal class Registration : RegisterStep
         {
-            public Registration(string id, Func<IBuilder, IBehavior> behaviorFactory)
-                : base(id, typeof(SubscriptionBehavior<TContext>), "notify subscription events", behaviorFactory)
+            public Registration()
+                : base("SubscriptionBehavior", typeof(SubscriptionBehavior<TContext>), "So we can get subscription events")
             {
                 InsertBeforeIfExists("ProcessSubscriptionRequests");
             }

@@ -2,25 +2,19 @@ namespace NServiceBus.AcceptanceTests.Routing
 {
     using System;
     using AcceptanceTesting;
+    using CriticalError = NServiceBus.CriticalError;
 
     static class SubscriptionBehaviorExtensions
     {
-        public static void OnEndpointSubscribed<TContext>(this EndpointConfiguration configuration, Action<SubscriptionEventArgs, TContext> action) where TContext : ScenarioContext
+        public static void OnEndpointSubscribed<TContext>(this EndpointConfiguration b, Action<SubscriptionEventArgs, TContext> action) where TContext : ScenarioContext
         {
-            configuration.Pipeline.Register(new SubscriptionBehavior<TContext>.Registration("NotifySubscriptionBehavior", builder =>
-            {
-                var context = builder.Build<TContext>();
-                return new SubscriptionBehavior<TContext>(action, context, MessageIntentEnum.Subscribe);
-            }));
-        }
+            b.Pipeline.Register<SubscriptionBehavior<TContext>.Registration>();
 
-        public static void OnEndpointUnsubscribed<TContext>(this EndpointConfiguration configuration, Action<SubscriptionEventArgs, TContext> action) where TContext : ScenarioContext
-        {
-            configuration.Pipeline.Register(new SubscriptionBehavior<TContext>.Registration("NotifyUnsubscriptionBehavior", builder =>
+            b.RegisterComponents(c => c.ConfigureComponent(builder =>
             {
                 var context = builder.Build<TContext>();
-                return new SubscriptionBehavior<TContext>(action, context, MessageIntentEnum.Unsubscribe);
-            }));
+                return new SubscriptionBehavior<TContext>(action, context, builder.Build<CriticalError>());
+            }, DependencyLifecycle.InstancePerCall));
         }
     }
 }
