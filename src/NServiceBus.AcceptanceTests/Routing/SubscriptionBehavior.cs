@@ -9,7 +9,7 @@
     using Transport;
     using CriticalError = NServiceBus.CriticalError;
 
-    class SubscriptionBehavior<TContext> : IBehavior<IIncomingPhysicalMessageContext> where TContext : ScenarioContext
+    class SubscriptionBehavior<TContext> : IBehavior<IIncomingPhysicalMessageContext, IIncomingPhysicalMessageContext> where TContext : ScenarioContext
     {
         public SubscriptionBehavior(Action<SubscriptionEventArgs, TContext> action, TContext scenarioContext, CriticalError criticalError, MessageIntentEnum intentToHandle)
         {
@@ -19,7 +19,7 @@
             this.intentToHandle = intentToHandle;
         }
 
-        public async Task Invoke(IIncomingPhysicalMessageContext context, Func<Task> next)
+        public async Task Invoke(IIncomingPhysicalMessageContext context, Func<IIncomingPhysicalMessageContext, Task> next)
         {
             const int maxRetries = 10;
             var retries = 0;
@@ -29,7 +29,7 @@
             var intent = (MessageIntentEnum)Enum.Parse(typeof(MessageIntentEnum), context.Message.Headers[Headers.MessageIntent], true);
             if (intent != intentToHandle)
             {
-                await next().ConfigureAwait(false);
+                await next(context).ConfigureAwait(false);
                 return;
             }
 
@@ -37,7 +37,7 @@
             {
                 try
                 {
-                    await next().ConfigureAwait(false);
+                    await next(context).ConfigureAwait(false);
                     succeeded = true;
                 }
                 catch (Exception ex)
