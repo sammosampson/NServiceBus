@@ -9,7 +9,7 @@
     using Transport;
     using CriticalError = NServiceBus.CriticalError;
 
-    class SubscriptionBehavior<TContext> : Behavior<IIncomingPhysicalMessageContext> where TContext : ScenarioContext
+    class SubscriptionBehavior<TContext> : IBehavior<IIncomingPhysicalMessageContext> where TContext : ScenarioContext
     {
         public SubscriptionBehavior(Action<SubscriptionEventArgs, TContext> action, TContext scenarioContext, CriticalError criticalError, MessageIntentEnum intentToHandle)
         {
@@ -19,12 +19,20 @@
             this.intentToHandle = intentToHandle;
         }
 
-        public override async Task Invoke(IIncomingPhysicalMessageContext context, Func<Task> next)
+        public async Task Invoke(IIncomingPhysicalMessageContext context, Func<Task> next)
         {
             const int maxRetries = 10;
             var retries = 0;
             var succeeded = false;
             Exception lastError = null;
+
+            var intent = (MessageIntentEnum)Enum.Parse(typeof(MessageIntentEnum), context.Message.Headers[Headers.MessageIntent], true);
+            if (intent != intentToHandle)
+            {
+                await next().ConfigureAwait(false);
+                return;
+            }
+
             while (retries < maxRetries && !succeeded)
             {
                 try
@@ -43,11 +51,7 @@
             {
                 criticalError.Raise("Error updating subscription store", lastError);
             }
-            var intent = (MessageIntentEnum)Enum.Parse(typeof(MessageIntentEnum), context.Message.Headers[Headers.MessageIntent], true);
-            if (intent != intentToHandle)
-            {
-                return;
-            }
+            
             var subscriptionMessageType = GetSubscriptionMessageTypeFrom(context.Message);
             if (subscriptionMessageType != null)
             {
